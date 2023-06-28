@@ -4,9 +4,7 @@ import threading
 import time
 from os.path import exists
 from selenium import webdriver
-#from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.firefox.service import Service as FirefoxService
-from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
@@ -149,7 +147,6 @@ sn_minarr = []
 sn_periodarr = []
 sn_hourarr = []
 
-
 for i in range(60):
     sec_arr.append(0)
     min_arr.append(0)
@@ -192,7 +189,7 @@ for i in range(24):
     hour_plan.append(380.0)
     energy_diff_hour_arr.append(0)
     sn_hourarr.append(0)
-
+    
 for i in range(4):
     period_arr.append(0)
     energy_diff_period_arr.append(0)
@@ -209,41 +206,33 @@ for i in range(4):
     tgsum_periodarr.append(0)
     sn_periodarr.append(0)
 
-FIREFOX_PATH = 'C:\Program Files\Mozilla Firefox\firefox.exe'
-FIREFOX_PATH_ALT = 'C:\Program Files (x86)\Mozilla Firefox\firefox.exe'
-GECKODRIVER_PATH = 'geckodriver.exe'
+CHROME_PATH = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+CHROME_PATH_ALT = 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
+CHROMEDRIVER_PATH = 'chromedriver.exe'
 #WINDOW_SIZE = "300,200"
-options = FirefoxOptions()
-##options.add_argument("--start-maximized")
-##options.add_argument("--disable-infobars")
-##options.add_argument("--disable-extensions")
-##options.add_argument('--no-sandbox')
-##options.add_argument('--disable-application-cache')
-##options.add_argument('--disable-gpu')
-##options.add_argument("--disable-dev-shm-usage")
-
+options = webdriver.ChromeOptions()
 #options.add_argument("--proxy-server='direct://'")
 #options.add_argument("--proxy-bypass-list=*")
 options.add_argument("--headless")
 #options.add_argument("--window-size=%s" % WINDOW_SIZE)
 
-service = FirefoxService(executable_path = GECKODRIVER_PATH)
+service = ChromeService(executable_path = CHROMEDRIVER_PATH)
 #service.creation_flags = 0x08000000
 
 #Checking if Chrome is installed in different directories:
 #'C:\Program Files\Google...' or 'C:\Program Files (x86)\Google...'
 
-##if exists(FIREFOX_PATH):
-##    options.binary_location = FIREFOX_PATH
-##    print(FIREFOX_PATH + " exists\n")
-##elif (exists(FIREFOX_PATH_ALT)):
-##    options.binary_location = FIREFOX_PATH_ALT
-##    print(FIREFOX_PATH_ALT + " exists\n")
-##else:
-##    print("Chrome not found!")
-##    sys.exit("Chrome not found!")
+if (exists(CHROME_PATH)):
+    options.binary_location = CHROME_PATH
+    print(CHROME_PATH + " exists\n")
+elif (exists(CHROME_PATH_ALT)):
+    options.binary_location = CHROME_PATH_ALT
+    print(CHROME_PATH_ALT + " exists\n")
+else:
+    print("Chrome not found!")
+    sys.exit("Chrome not found!")
 
-browser = webdriver.Firefox(service=service, options=options)
+browser = webdriver.Chrome(service=service, options=options)
 actions = ActionChains(browser)
 
 
@@ -440,12 +429,13 @@ def show_plan():
     generation_target_label.config(text = str(round(g_target, 1)) + " МВт")
 
     for i in range(4):
-        period_energy_labels[i].config(fg='#000', font=('Arial', 14), width=16, borderwidth=2)
-        period_fact_labels[i].config(fg='#000', font=('Arial', 14), borderwidth=2)
-    period_energy_labels[last_min//15].config(fg='#00a', font=('Arial', 16, 'bold'), width=14, borderwidth=4)
-    period_fact_labels[last_min//15].config(fg='#00a', font=('Arial', 14, 'bold'), borderwidth=4)
+        period_energy_labels[i].config(fg='#000', font=('Arial', 18), width=16, borderwidth=2)
+        period_fact_labels[i].config(fg='#000', font=('Arial', 18), borderwidth=2)
+    period_energy_labels[last_min//15].config(fg='#00a', font=('Arial', 22, 'bold'), width=14, borderwidth=4)
+    period_fact_labels[last_min//15].config(fg='#00a', font=('Arial', 18, 'bold'), borderwidth=4)
     
-   
+
+
 def test_func():
     global tg1_p, tg2_p, tg3_p, tg4_p, tg5_p, tg6_p
     global line110_1, line110_2, line110_3, line110_4, line110_5, line110_6, line110_7, line110_8, line110_9, line110_10, line110_11, line110_12
@@ -752,7 +742,6 @@ def time_func():
     tgsum_secarr[cur_sec] = tg_sum
     sn_secarr[cur_sec] = sn
     #print("sec: {} value: {}".format(str(cur_sec), sec_arr[cur_sec]))
-    
 
 def calculations():
     global tg1_p, tg2_p, tg3_p, tg4_p, tg5_p, tg6_p, tg_sum
@@ -768,7 +757,7 @@ def calculations():
 
     words = []
     word = ""
-    if len(full_data) > 420:    # Adjust this condition to actual length of full_data
+    if len(full_data) > 2000:    # Adjust this condition to actual length of full_data
         for c in full_data:
             if (c==" " or c=="\n"):
                 if word!="":
@@ -778,94 +767,107 @@ def calculations():
                 word += c
         words.append(word)
 
-##    for i in range(len(words)):
-##        print(i, words[i])
-##
-##    print("len(words) = ", len(words))
-##    print("len(full_data) = ", len(full_data))
+
+    #for i in range(len(words)):
+    #    print(i, words[i])
+
+    #print("len(words) = ", len(words))
+    #print("len(full_data) = ", len(full_data))
+    if len(words) == 255:
+        tg1_p = words[12]
+        tg2_p = words[20]
+        tg3_p = words[28]
+        tg4_p = words[36]
+        tg5_p = words[44]
+        tg6_p = words[52]
+
+        line110_1 = words[61]
+        line110_2 = words[70]
+        line110_3 = words[79]
+        line110_4 = words[88]
+        line110_5 = words[115]
+        line110_6 = words[124]
+        line110_7 = words[201]
+        line110_8 = words[208]
+        line110_9 = words[215]
+        line110_10 = words[222]
+        line110_11 = words[229]
+        line110_12 = words[158]
         
-    if len(words) == 62:
+        line220_1 = words[97]
+        line220_2 = words[106]
+        line220_3 = words[133]
+        line220_4 = words[142]
+        line220_5 = words[150]
 
-        tg1_p = float(words[7])/5
-        tg2_p = float(words[8])/5
-        tg3_p = float(words[13])
-        tg4_p = float(words[14])
-        tg5_p = float(words[19])/5
-        tg6_p = float(words[20])/5
+        line220_1_minus = words[236]
+        line220_2_minus = words[243]
 
-        line110_1 = float(words[25])/20
-        line110_2 = float(words[26])/20
-        line110_3 = float(words[31])/50
-        line110_4 = float(words[32])/50
-        line110_5 = float(words[37])/100
-        line110_6 = float(words[38])/100
-        line110_7 = float(words[43])/300
-        line110_8 = float(words[44])/300
-        #line110_9 = words[50]
-        #line110_10 = words[51]
-        #line110_11 = words[44]
-                
-        line220_1 = float(words[50])
-        line220_2 = float(words[51])
-        line220_3 = float(words[57])
-        line220_4 = float(words[58])
-        #line220_5 = words[150]
-
-        #u_110 = words[194]
-        #u_220 = words[176]
+        u_110 = words[194]
+        u_220 = words[176]
     
-    tg1_value_label.config(text = str(round(tg1_p,4)) + " МВт")
-    tg2_value_label.config(text = str(round(tg2_p,4)) + " МВт")
-    tg3_value_label.config(text = str(round(tg3_p,4)) + " МВт")
-    tg4_value_label.config(text = str(round(tg4_p,4)) + " МВт")
-    tg5_value_label.config(text = str(round(tg5_p,4)) + " МВт")
-    tg6_value_label.config(text = str(round(tg6_p,4)) + " МВт")
-    tg_sum = tg1_p + tg2_p + tg3_p + tg4_p + tg5_p + tg6_p
-    tg_sum_value_label.config(text = str(round(tg_sum, 4)) + " МВт")
-    generation_current_label.config(text = str(round(tg_sum, 4)) + " МВт")
+    tg1_value_label.config(text = str(round(float(tg1_p),2)) + " МВт")
+    tg2_value_label.config(text = str(round(float(tg2_p),2)) + " МВт")
+    tg3_value_label.config(text = str(round(float(tg3_p),2)) + " МВт")
+    tg4_value_label.config(text = str(round(float(tg4_p),2)) + " МВт")
+    tg5_value_label.config(text = str(round(float(tg5_p),2)) + " МВт")
+    tg6_value_label.config(text = str(round(float(tg6_p),2)) + " МВт")
+    tg_sum = float(tg1_p) + float(tg2_p) + float(tg3_p) + float(tg4_p) + float(tg5_p) + float(tg6_p)
+    tg_sum_value_label.config(text = str(round(tg_sum, 1)) + " МВт")
+    generation_current_label.config(text = str(round(tg_sum, 1)) + " МВт")
     
+    line110_1_value_label.config(text = str(round(float(line110_1),2)) + " МВт")
+    line110_2_value_label.config(text = str(round(float(line110_2),2)) + " МВт")
+    line110_3_value_label.config(text = str(round(float(line110_3),2)) + " МВт")
+    line110_4_value_label.config(text = str(round(float(line110_4),2)) + " МВт")
+    line110_5_value_label.config(text = str(round(float(line110_5),2)) + " МВт")
+    line110_6_value_label.config(text = str(round(float(line110_6),2)) + " МВт")
 
-    line110_1_value_label.config(text = str(round(line110_1,4)) + " МВт")
-    line110_2_value_label.config(text = str(round(line110_2,4)) + " МВт")
-    line110_3_value_label.config(text = str(round(line110_3,4)) + " МВт")
-    line110_4_value_label.config(text = str(round(line110_4,4)) + " МВт")
-    line110_5_value_label.config(text = str(round(line110_5,4)) + " МВт")
-    line110_6_value_label.config(text = str(round(line110_6,4)) + " МВт")
-    line110_7_value_label.config(text = str(round(line110_7,4)) + " МВт")
-    line110_8_value_label.config(text = str(round(line110_8,4)) + " МВт")
-    line110_9_value_label.config(text = str(round(line110_9,4)) + " МВт")
-    line110_10_value_label.config(text = str(round(line110_10,4)) + " МВт")
-    line110_11_value_label.config(text = str(round(line110_11,4)) + " МВт")
+    line110_7_real = float(line110_7) * 1436
+    line110_7_value_label.config(text = str(round(line110_7_real,2)) + " МВт")
+    
+    line110_8_real = float(line110_8) * 1436
+    line110_8_value_label.config(text = str(round(line110_8_real,2)) + " МВт")
+    
+    line110_9_real = float(line110_9) * 7612
+    line110_9_value_label.config(text = str(round(line110_9_real,2)) + " МВт")
+    
+    line110_10_real = float(line110_10) * 7612
+    line110_10_value_label.config(text = str(round(line110_10_real,2)) + " МВт")
+    
+    line110_11_real = float(line110_11) * 3800
+    line110_11_value_label.config(text = str(round(line110_11_real,2)) + " МВт")
+    
     line110_12_value_label.config(text = str(round(float(line110_12),2)) + " МВт")
 
     #110kV LINES SUM   
-    line110_sum = (line110_1 + line110_2 + line110_3 + line110_4 + line110_5
-                          + line110_6 + line110_7 + line110_8 + line110_9
-                          + line110_10 + line110_11 + float(line110_12))
-    line110_sum_value_label.config(text = str(round(line110_sum, 4)) + " МВт")
+    line110_sum = (float(line110_1) + float(line110_2) + float(line110_3) + float(line110_4) + float(line110_5)
+                          + float(line110_6) + line110_7_real + line110_8_real + line110_9_real
+                          + line110_10_real + line110_11_real + float(line110_12))
+    line110_sum_value_label.config(text = str(round(line110_sum, 1)) + " МВт")
 
-    line220_1_real = line220_1 - line220_1_minus * 7612
-    line220_1_value_label.config(text = str(round(line220_1_real,4)) + " МВт")
+    line220_1_real = float(line220_1) - float(line220_1_minus) * 7612
+    line220_1_value_label.config(text = str(round(line220_1_real,2)) + " МВт")
 
-    line220_2_real = line220_2 - line220_2_minus * 7612
-    line220_2_value_label.config(text = str(round(line220_2_real,4)) + " МВт")
+    line220_2_real = float(line220_2) - float(line220_2_minus) * 7612
+    line220_2_value_label.config(text = str(round(line220_2_real,2)) + " МВт")
     
-    line220_3_value_label.config(text = str(round(float(line220_3),4)) + " МВт")
-    line220_4_value_label.config(text = str(round(float(line220_4),4)) + " МВт")
-    line220_5_value_label.config(text = str(round(float(line220_5),4)) + " МВт")
+    line220_3_value_label.config(text = str(round(float(line220_3),2)) + " МВт")
+    line220_4_value_label.config(text = str(round(float(line220_4),2)) + " МВт")
+    line220_5_value_label.config(text = str(round(float(line220_5),2)) + " МВт")
 
     #220kV LINES SUM 
-    line220_sum = line220_1_real + line220_2_real + line220_3 + line220_4 + line220_5
-    line220_sum_value_label.config(text = str(round(line220_sum, 4)) + " МВт")
+    line220_sum = line220_1_real + line220_2_real + float(line220_3) + float(line220_4) + float(line220_5)
+    line220_sum_value_label.config(text = str(round(line220_sum, 1)) + " МВт")
 
     #ALL LINES SUM
     all_lines_sum = line110_sum + line220_sum
-    all_lines_sum_value_label.config(text = str(round(all_lines_sum, 4)) + " МВт")
-    power_current_label.config(text = str(round(all_lines_sum, 4)) + " МВт")
+    all_lines_sum_value_label.config(text = str(round(all_lines_sum, 1)) + " МВт")
+    power_current_label.config(text = str(round(all_lines_sum, 1)) + " МВт")
 
     #СОБСТВЕННЫЕ НУЖДЫ + ПОТРЕБИТЕЛИ 6кВ + ПОТЕРИ
     sn = tg_sum - all_lines_sum
-    sn_value_label.config(text = str(round(sn, 4)) + " МВт")
+    sn_value_label.config(text = str(round(sn, 1)) + " МВт")
     
     #VOLTAGE 110kV, 220kV
     u_110_value_label.config(text = str(round(float(u_110),2)) + " кВ")
@@ -910,7 +912,7 @@ def start(target_site):
     try:
         browser.get(target_site)
         url_open_fail = False
-        
+       
     except:
 ##        if first_start:                 #Delete this in release
 ##            time_start = time.time()    #Delete this in release
@@ -942,24 +944,17 @@ def start(target_site):
                         
         except:
             pass
-
-    try:
-        browser.switch_to.frame(browser.find_element(By.XPATH, "//*[@id='main_frame']"))
-        browser.switch_to.frame(browser.find_element(By.XPATH, "/html/body/table/tbody/tr/td/iframe"))
-        print("Frame found!")
-    except:
-        print("Frame NOT found!")
         
     time.sleep(1)
-    load_data()    
+    #load_data()
     work_stop = False
 
     if first_start:
         time_start = time.time()
         first_start = False
-            
-    #if not url_open_fail:
-    work_thread_start()
+
+    if not url_open_fail:
+        work_thread_start()
     print(time.strftime("%d %m %Y %H:%M:%S", time.localtime()))
     show_plan()
     site_opening_started = False
@@ -977,20 +972,20 @@ def work():
     global cur_sec
     t1 = 0
     t2 = 0
-    full_data = ''
-    
     #print("Work started...")
     try:
         t1 = timer()
-        full_data = browser.find_element(By.XPATH, "//*[@id='mainDiv']/table/tbody/tr/td[1]/table/tbody/tr[6]/td/table").text
-        #print(full_data)
-        #print(full_data[424]+full_data[425]+full_data[426]+full_data[427]+full_data[428])
+        full_data = browser.find_element(By.XPATH, "//*[@id='TextInternalPage']/table[3]").text
+        t2 = timer()
+   
+        #print("Время выполнения полного задания: ", (t2-t1))
+        
     except:
         error_count += 1
         pass
     
-    #print("Work() took: ", (timer()-t1))
-    
+    #print("Work() took: ", (t2-t1))
+      
     #print("Work finished.")
     if not work_stop:
         work_done = True
@@ -998,7 +993,7 @@ def work():
         work_done = False
 
 def get_hour_plan():
-    global energy_diff_sum, hour_plan
+    global energy_diff_sum, hour_plan, period_arr, min_arr
     
     if is_float(hour_plan_entry.get()):
         c_hour = time.localtime().tm_hour
@@ -1027,7 +1022,7 @@ def get_day_plan():
 def work_thread_start():
     global work_done, work_stop
     work_done = False
-    work_thread = threading.Thread(target=test_func, args=())
+    work_thread = threading.Thread(target=work, args=())
     work_thread.start()
 
 def work_loop():
@@ -1071,6 +1066,7 @@ root = Tk()
 root.title("Программа отображения мощности по генераторам и линиям")
 root.config(padx=10, pady=10)
 root.geometry('+%d+%d'%(0,0))
+root.maxsize(2000, 1200)
 s = ttk.Style()
 s.configure('TNotebook.Tab', font=('Times New Roman', '14'))
 
@@ -1090,180 +1086,180 @@ site_label.grid(row=0, column=0, sticky="w", padx=5, pady=5)
 
 site_entry = Entry(form_frame, width=25)
 site_entry.grid(row=0, column=1, sticky="w", padx=(0,10))
-site_entry.insert(0, "https://www.profinance.ru/quote_show.php")
+site_entry.insert(0, "http://192.168.1.2")
 
 #ГЕНЕРАТОРЫ
-generators_frame = LabelFrame(tab1, text="Генераторы", font=('Times New Roman', 12))
+generators_frame = LabelFrame(tab1, text="Генераторы", font=('Times New Roman', 14))
 generators_frame.grid(row=1, rowspan=2, column=0, sticky="nw", padx = 5, pady = 2)
 
-tg1_label = Label(generators_frame, text="ТГ-1: ", font=('Arial', 13))
+tg1_label = Label(generators_frame, text="ТГ-1: ", font=('Arial', 16))
 tg1_label.grid(row=0, column=0, sticky = "w", padx = 5, pady = 2)
-tg1_value_label = Label(generators_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+tg1_value_label = Label(generators_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 tg1_value_label.grid(row=0, column=1, sticky = "w", padx = 5, pady = 2)
 
-tg2_label = Label(generators_frame, text="ТГ-2: ", font=('Arial', 13))
+tg2_label = Label(generators_frame, text="ТГ-2: ", font=('Arial', 16))
 tg2_label.grid(row=1, column=0, sticky = "w", padx = 5, pady = 2)
-tg2_value_label = Label(generators_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+tg2_value_label = Label(generators_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 tg2_value_label.grid(row=1, column=1, sticky = "w", padx = 5, pady = 2)
 
-tg3_label = Label(generators_frame, text="ТГ-3: ", font=('Arial', 13))
+tg3_label = Label(generators_frame, text="ТГ-3: ", font=('Arial', 16))
 tg3_label.grid(row=2, column=0, sticky = "w", padx = 5, pady = 2)
-tg3_value_label = Label(generators_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+tg3_value_label = Label(generators_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 tg3_value_label.grid(row=2, column=1, sticky = "w", padx = 5, pady = 2)
 
-tg4_label = Label(generators_frame, text="ТГ-4: ", font=('Arial', 13))
+tg4_label = Label(generators_frame, text="ТГ-4: ", font=('Arial', 16))
 tg4_label.grid(row=3, column=0, sticky = "w", padx = 5, pady = 2)
-tg4_value_label = Label(generators_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+tg4_value_label = Label(generators_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 tg4_value_label.grid(row=3, column=1, sticky = "w", padx = 5, pady = 2)
 
-tg5_label = Label(generators_frame, text="ТГ-5: ", font=('Arial', 13))
+tg5_label = Label(generators_frame, text="ТГ-5: ", font=('Arial', 16))
 tg5_label.grid(row=4, column=0, sticky = "w", padx = 5, pady = 2)
-tg5_value_label = Label(generators_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+tg5_value_label = Label(generators_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 tg5_value_label.grid(row=4, column=1, sticky = "w", padx = 5, pady = 2)
 
-tg6_label = Label(generators_frame, text="ТГ-6: ", font=('Arial', 13))
+tg6_label = Label(generators_frame, text="ТГ-6: ", font=('Arial', 16))
 tg6_label.grid(row=5, column=0, sticky = "w", padx = 5, pady = 2)
-tg6_value_label = Label(generators_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+tg6_value_label = Label(generators_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 tg6_value_label.grid(row=5, column=1, sticky = "w", padx = 5, pady = 2)
 
-tg_sum_label = Label(generators_frame, text="Суммарная \nP генераторов: ", font=('Arial', 14), justify = LEFT)
+tg_sum_label = Label(generators_frame, text="Суммарная \nP генераторов: ", font=('Arial', 18), justify = LEFT)
 tg_sum_label.grid(row=6, column=0, sticky = "w", padx = 5, pady = 5)
-tg_sum_value_label = Label(generators_frame, text="0.0", font=('Arial', 14), width = 10, anchor="w")
+tg_sum_value_label = Label(generators_frame, text="0.0", font=('Arial', 18), width = 10, anchor="w")
 tg_sum_value_label.grid(row=6, column=1, sticky = "w", padx = 5, pady = 5)
 
 # ЛИНИИ 110 кВ
-lines110_frame = LabelFrame(tab1, text="Линии 110кВ", font=('Times New Roman', 12))
-lines110_frame.grid(row=1, rowspan=2, column=1, sticky="nw", padx = 5, pady = 2)
+lines110_frame = LabelFrame(tab1, text="Линии 110кВ", font=('Times New Roman', 14))
+lines110_frame.grid(row=1, rowspan=2, column=1, sticky="nw", padx = 50, pady = 2)
 
-line110_1_label = Label(lines110_frame, text="ВЛ Караганда - 1: ", font=('Arial', 13))
+line110_1_label = Label(lines110_frame, text="ВЛ Караганда - 1: ", font=('Arial', 16))
 line110_1_label.grid(row=0, column=0, sticky = "w", padx = 5, pady = 2)
-line110_1_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_1_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_1_value_label.grid(row=0, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_2_label = Label(lines110_frame, text="ВЛ Караганда - 2: ", font=('Arial', 13))
+line110_2_label = Label(lines110_frame, text="ВЛ Караганда - 2: ", font=('Arial', 16))
 line110_2_label.grid(row=1, column=0, sticky = "w", padx = 5, pady = 2)
-line110_2_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_2_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_2_value_label.grid(row=1, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_3_label = Label(lines110_frame, text="ВЛ Жана-Жарык - 1: ", font=('Arial', 13))
+line110_3_label = Label(lines110_frame, text="ВЛ Жана-Жарык - 1: ", font=('Arial', 16))
 line110_3_label.grid(row=2, column=0, sticky = "w", padx = 5, pady = 2)
-line110_3_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_3_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_3_value_label.grid(row=2, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_4_label = Label(lines110_frame, text="ВЛ Жана-Жарык - 2: ", font=('Arial', 13))
+line110_4_label = Label(lines110_frame, text="ВЛ Жана-Жарык - 2: ", font=('Arial', 16))
 line110_4_label.grid(row=3, column=0, sticky = "w", padx = 5, pady = 2)
-line110_4_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_4_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_4_value_label.grid(row=3, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_5_label = Label(lines110_frame, text="ВЛ Сантехническая - 1: ", font=('Arial', 13))
+line110_5_label = Label(lines110_frame, text="ВЛ Сантехническая - 1: ", font=('Arial', 16))
 line110_5_label.grid(row=4, column=0, sticky = "w", padx = 5, pady = 2)
-line110_5_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_5_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_5_value_label.grid(row=4, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_6_label = Label(lines110_frame, text="ВЛ Сантехническая - 2: ", font=('Arial', 13))
+line110_6_label = Label(lines110_frame, text="ВЛ Сантехническая - 2: ", font=('Arial', 16))
 line110_6_label.grid(row=5, column=0, sticky = "w", padx = 5, pady = 2)
-line110_6_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_6_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_6_value_label.grid(row=5, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_7_label = Label(lines110_frame, text="ВЛ Сталь: ", font=('Arial', 13))
+line110_7_label = Label(lines110_frame, text="ВЛ Сталь: ", font=('Arial', 16))
 line110_7_label.grid(row=6, column=0, sticky = "w", padx = 5, pady = 2)
-line110_7_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_7_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_7_value_label.grid(row=6, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_8_label = Label(lines110_frame, text="ВЛ Каз Карбон: ", font=('Arial', 13))
+line110_8_label = Label(lines110_frame, text="ВЛ Каз Карбон: ", font=('Arial', 16))
 line110_8_label.grid(row=7, column=0, sticky = "w", padx = 5, pady = 2)
-line110_8_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_8_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_8_value_label.grid(row=7, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_9_label = Label(lines110_frame, text="ВЛ КЗФ - 1: ", font=('Arial', 13))
+line110_9_label = Label(lines110_frame, text="ВЛ КЗФ - 1: ", font=('Arial', 16))
 line110_9_label.grid(row=8, column=0, sticky = "w", padx = 5, pady = 2)
-line110_9_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_9_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_9_value_label.grid(row=8, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_10_label = Label(lines110_frame, text="ВЛ КЗФ - 2: ", font=('Arial', 13))
+line110_10_label = Label(lines110_frame, text="ВЛ КЗФ - 2: ", font=('Arial', 16))
 line110_10_label.grid(row=9, column=0, sticky = "w", padx = 5, pady = 2)
-line110_10_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_10_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_10_value_label.grid(row=9, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_11_label = Label(lines110_frame, text="ВЛ Насосная: ", font=('Arial', 13))
+line110_11_label = Label(lines110_frame, text="ВЛ Насосная: ", font=('Arial', 16))
 line110_11_label.grid(row=10, column=0, sticky = "w", padx = 5, pady = 2)
-line110_11_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_11_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_11_value_label.grid(row=10, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_12_label = Label(lines110_frame, text="ВЛ ОВМ-110: ", font=('Arial', 13))
+line110_12_label = Label(lines110_frame, text="ВЛ ОВМ-110: ", font=('Arial', 16))
 line110_12_label.grid(row=11, column=0, sticky = "w", padx = 5, pady = 2)
-line110_12_value_label = Label(lines110_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line110_12_value_label = Label(lines110_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line110_12_value_label.grid(row=11, column=1, sticky = "w", padx = 5, pady = 2)
 
-line110_sum_label = Label(lines110_frame, text="Сумма P по линиям 110кВ: ", font=('Arial', 14))
+line110_sum_label = Label(lines110_frame, text="Сумма P по линиям 110кВ: ", font=('Arial', 18))
 line110_sum_label.grid(row=12, column=0, sticky = "w", padx = 5, pady = 5)
-line110_sum_value_label = Label(lines110_frame, text="0.0", font=('Arial', 14), width = 10, anchor="w")
+line110_sum_value_label = Label(lines110_frame, text="0.0", font=('Arial', 18), width = 10, anchor="w")
 line110_sum_value_label.grid(row=12, column=1, sticky = "w", padx = 5, pady = 5)
 
 #ЛИНИИ 220 кВ
-lines220_frame = LabelFrame(tab1, text="Линии 220кВ", font=('Times New Roman', 12))
+lines220_frame = LabelFrame(tab1, text="Линии 220кВ", font=('Times New Roman', 14))
 lines220_frame.grid(row=1, rowspan=2, column=2, sticky="nw", padx = 5, pady = 2)
 
-line220_1_label = Label(lines220_frame, text="ВЛ Л-2278: ", font=('Arial', 13))
+line220_1_label = Label(lines220_frame, text="ВЛ Л-2278: ", font=('Arial', 16))
 line220_1_label.grid(row=0, column=0, sticky = "w", padx = 5, pady = 2)
-line220_1_value_label = Label(lines220_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line220_1_value_label = Label(lines220_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line220_1_value_label.grid(row=0, column=1, sticky = "w", padx = 5, pady = 2)
 
-line220_2_label = Label(lines220_frame, text="ВЛ Л-2288: ", font=('Arial', 13))
+line220_2_label = Label(lines220_frame, text="ВЛ Л-2288: ", font=('Arial', 16))
 line220_2_label.grid(row=1, column=0, sticky = "w", padx = 5, pady = 2)
-line220_2_value_label = Label(lines220_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line220_2_value_label = Label(lines220_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line220_2_value_label.grid(row=1, column=1, sticky = "w", padx = 5, pady = 2)
 
-line220_3_label = Label(lines220_frame, text="ВЛ Л-2058: ", font=('Arial', 13))
+line220_3_label = Label(lines220_frame, text="ВЛ Л-2058: ", font=('Arial', 16))
 line220_3_label.grid(row=2, column=0, sticky = "w", padx = 5, pady = 2)
-line220_3_value_label = Label(lines220_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line220_3_value_label = Label(lines220_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line220_3_value_label.grid(row=2, column=1, sticky = "w", padx = 5, pady = 2)
 
-line220_4_label = Label(lines220_frame, text="ВЛ Л-2068: ", font=('Arial', 13))
+line220_4_label = Label(lines220_frame, text="ВЛ Л-2068: ", font=('Arial', 16))
 line220_4_label.grid(row=3, column=0, sticky = "w", padx = 5, pady = 2)
-line220_4_value_label = Label(lines220_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line220_4_value_label = Label(lines220_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line220_4_value_label.grid(row=3, column=1, sticky = "w", padx = 5, pady = 2)
 
-line220_5_label = Label(lines220_frame, text="ОВМ-220: ", font=('Arial', 13))
+line220_5_label = Label(lines220_frame, text="ОВМ-220: ", font=('Arial', 16))
 line220_5_label.grid(row=4, column=0, sticky = "w", padx = 5, pady = 2)
-line220_5_value_label = Label(lines220_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+line220_5_value_label = Label(lines220_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 line220_5_value_label.grid(row=4, column=1, sticky = "w", padx = 5, pady = 2)
 
-line220_sum_label = Label(lines220_frame, text="Сумма P по линиям 220кВ: ", font=('Arial', 14))
+line220_sum_label = Label(lines220_frame, text="Сумма P по линиям 220кВ: ", font=('Arial', 18))
 line220_sum_label.grid(row=5, column=0, sticky = "w", padx = 5, pady = 5)
-line220_sum_value_label = Label(lines220_frame, text="0.0", font=('Arial', 14), width = 10, anchor="w")
+line220_sum_value_label = Label(lines220_frame, text="0.0", font=('Arial', 18), width = 10, anchor="w")
 line220_sum_value_label.grid(row=5, column=1, sticky = "w", padx = 5, pady = 5)
 
 #НАПРЯЖЕНИЯ НА ШИНАХ 110кВ и 220кВ
-u_frame = LabelFrame(tab1, text="Напряжение на шинах", font=('Times New Roman', 12))
+u_frame = LabelFrame(tab1, text="Напряжение на шинах", font=('Times New Roman', 14))
 u_frame.grid(row=2, column=2, sticky = "w", padx=5, pady=5)
 
-u_110_label = Label(u_frame, text="Напряжение 2СШ 110кВ: ", font=('Arial', 13))
+u_110_label = Label(u_frame, text="Напряжение 2СШ 110кВ: ", font=('Arial', 16))
 u_110_label.grid(row=0, column=0, sticky = "w", padx = 5, pady = 2)
-u_110_value_label = Label(u_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+u_110_value_label = Label(u_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 u_110_value_label.grid(row=0, column=1, sticky = "w", padx = 5, pady = 2)
 
-u_220_label = Label(u_frame, text="Напряжение 2СШ 220кВ: ", font=('Arial', 13))
+u_220_label = Label(u_frame, text="Напряжение 2СШ 220кВ: ", font=('Arial', 16))
 u_220_label.grid(row=1, column=0, sticky = "w", padx = 5, pady = 2)
-u_220_value_label = Label(u_frame, text="0.0", font=('Arial', 13), width = 10, anchor="w")
+u_220_value_label = Label(u_frame, text="0.0", font=('Arial', 16), width = 10, anchor="w")
 u_220_value_label.grid(row=1, column=1, sticky = "w", padx = 5, pady = 2)
 
 #СУММА МОЩНОСТИ ПО ВСЕМ ЛИНИЯМ (110кВ + 220кВ)
-all_lines_sum_frame = LabelFrame(tab1, text="Сумма P по всем линиям", font=('Times New Roman', 12))
+all_lines_sum_frame = LabelFrame(tab1, text="Сумма P по всем линиям", font=('Times New Roman', 14))
 all_lines_sum_frame.grid(row=3, column=0, columnspan=2, sticky="nw", padx = 5, pady = 2)
 
-all_lines_sum_label = Label(all_lines_sum_frame, text="Сумма P по линиям 110кВ + 220кВ: ", font=('Arial', 14))
+all_lines_sum_label = Label(all_lines_sum_frame, text="Сумма P по линиям 110кВ + 220кВ: ", font=('Arial', 18))
 all_lines_sum_label.grid(row=0, column=0, sticky="w", padx = 5, pady = 5)
-all_lines_sum_value_label = Label(all_lines_sum_frame, text="0.0", font=('Arial', 16), width = 15, bg='white', borderwidth=2, relief='ridge')
+all_lines_sum_value_label = Label(all_lines_sum_frame, text="0.0", font=('Arial', 22), width = 15, bg='white', borderwidth=2, relief='ridge')
 all_lines_sum_value_label.grid(row=0, column=1, sticky="w", padx = 5, pady = 5)
 
 #СОБСТВЕННЫЕ НУЖДЫ (с потребителями по 6кВ)
-sn_frame = LabelFrame(tab1, text="Собственные нужды и потребители по 6кВ", font=('Times New Roman', 12))
+sn_frame = LabelFrame(tab1, text="Собственные нужды и потребители по 6кВ", font=('Times New Roman', 14))
 sn_frame.grid(row=4, column=0, columnspan=2, sticky="nw", padx = 5, pady = 5)
 
-sn_label = Label(sn_frame, text="Сумма P СН + потребители 6кВ + потери", font=('Arial', 14))
+sn_label = Label(sn_frame, text="Сумма P СН + потребители 6кВ + потери", font=('Arial', 16))
 sn_label.grid(row=0, column=0, sticky="w", padx = 5, pady = 5)
-sn_value_label = Label(sn_frame, text="0.0", font=('Arial', 14), width = 15, bg='white', borderwidth=2, relief='ridge')
+sn_value_label = Label(sn_frame, text="0.0", font=('Arial', 16), width = 15, bg='white', borderwidth=2, relief='ridge')
 sn_value_label.grid(row=0, column=1, sticky="w", padx = 5, pady = 5)
 
 
@@ -1276,105 +1272,104 @@ period_energy_labels = []
 
 
 #Средняя мощность по 15-минуткам. Факт | План
-period_output_frame = LabelFrame(tab2, text="Суммарная выдача мощности с шин 110 и 220кВ по периодам одного часа", font=('Arial', 12))
+period_output_frame = LabelFrame(tab2, text="Суммарная выдача мощности с шин 110 и 220кВ по периодам одного часа", font=('Arial', 14))
 period_output_frame.grid(row=0, rowspan=2, column=0, sticky="nw", padx = 10, pady = 12)
-period_label1 = Label(period_output_frame, text="Время\n\n13:00-14:00", font=('Arial', 14), justify=LEFT)
+period_label1 = Label(period_output_frame, text="Время\n\n13:00-14:00", font=('Arial', 16), justify=LEFT)
 period_label1.grid(row=0, rowspan=2, column=0, sticky="w", padx=5, pady=5)
 for i in range(4):
-    period_head_labels.append(Label(period_output_frame, text = "{} мин\nФакт    |    График".format(str((i+1)*15)), font=('Arial', 14), width = 18, justify=CENTER))
+    period_head_labels.append(Label(period_output_frame, text = "{} мин\nФакт    |    График".format(str((i+1)*15)), font=('Arial', 16), width = 18, justify=CENTER))
     period_head_labels[i].grid(row=0, column=1+(i*2), columnspan=2, padx=(25, 1), pady=0)
     
-    period_fact_labels.append(Label(period_output_frame, text = "0.0", font=('Arial', 14), width = 9, anchor="center", bg='white', borderwidth=2, relief='ridge'))
+    period_fact_labels.append(Label(period_output_frame, text = "0.0", font=('Arial', 18), width = 9, anchor="center", bg='white', borderwidth=2, relief='ridge'))
     period_fact_labels[i].grid(row=1, column=1+(i*2), sticky="e", padx=2, pady=10)
 
-    period_plan_labels.append(Label(period_output_frame, text = "0.0", font=('Arial', 14), width = 9, anchor="center", bg='white', borderwidth=2, relief='ridge'))
+    period_plan_labels.append(Label(period_output_frame, text = "0.0", font=('Arial', 18), width = 9, anchor="center", bg='white', borderwidth=2, relief='ridge'))
     period_plan_labels[i].grid(row=1, column=1+(i*2+1), sticky="w", padx=2, pady=10)
 
 
 #Суммарная перевыдача или недовыдача эл.энергии по 15-минуткам
     
-period_label2 = Label(period_output_frame, text="Суммарный\nнедостаток(-)\nизбыток(+)", font=('Arial', 14), width=10, justify=LEFT)
+period_label2 = Label(period_output_frame, text="Суммарный\nнедостаток(-)\nизбыток(+)", font=('Arial', 16), width=12, justify=LEFT)
 period_label2.grid(row=2, column=0, sticky="w", padx=5, pady=5)
 for i in range(4):
-    period_energy_labels.append(Label(period_output_frame, text = "0.0 кВт*ч", font=('Arial', 14), width = 16, anchor="center", bg='white', borderwidth=2, relief='ridge'))
+    period_energy_labels.append(Label(period_output_frame, text = "0.0 кВт*ч", font=('Arial', 18), width = 16, anchor="center", bg='white', borderwidth=2, relief='ridge'))
     period_energy_labels[i].grid(row=2, column=1+(i*2), columnspan=2, padx=14, pady=10)
 
 
 #Текущая необходимая величина выдачи мощности для выполнения плана
 
-period_label3 = Label(period_output_frame, text='Необходимая величина выдачи\nмощности для выполнения графика:', font=('Arial', 14), width=28, justify=LEFT, anchor='w')
-period_label3.grid(row=3, column=0, columnspan=3, sticky="w", padx=5, pady=5)
-period_label4 = Label(period_output_frame, text='Необходимая величина суммарной\nгенерации:', font=('Arial', 14), width=28, justify=LEFT, anchor='w')
-period_label4.grid(row=4, column=0, columnspan=3, sticky="w", padx=5, pady=15)
-period_label5 = Label(period_output_frame, text='Факт:', font=('Arial', 18), width=7, justify=LEFT, anchor='e')
-period_label5.grid(row=3, column=6, sticky="w", padx=2, pady=5)
-period_label6 = Label(period_output_frame, text='Факт:', font=('Arial', 18), width=7, justify=LEFT, anchor='e')
-period_label6.grid(row=4, column=6, sticky="w", padx=2, pady=15)
+period_label3 = Label(period_output_frame, text='Необходимая величина выдачи\nмощности для выполнения графика:', font=('Arial', 16), width=30, justify=LEFT, anchor='w')
+period_label3.grid(row=3, column=0, columnspan=3, sticky="w", padx=5, pady=20)
+period_label4 = Label(period_output_frame, text='Необходимая величина суммарной\nгенерации:', font=('Arial', 16), width=28, justify=LEFT, anchor='w')
+period_label4.grid(row=4, column=0, columnspan=3, sticky="w", padx=5, pady=20)
+period_label5 = Label(period_output_frame, text='Факт:', font=('Arial', 20), width=7, justify=LEFT, anchor='e')
+period_label5.grid(row=3, column=6, sticky="w", padx=2, pady=20)
+period_label6 = Label(period_output_frame, text='Факт:', font=('Arial', 20), width=7, justify=LEFT, anchor='e')
+period_label6.grid(row=4, column=6, sticky="w", padx=2, pady=20)
 
 
-power_target_label = Label(period_output_frame, text='0.0 МВт', font=('Arial', 28), width = 14, anchor='center', bg='white', borderwidth=2, relief='ridge')
-power_target_label.grid(row=3, column=3, columnspan=3, padx=8, pady=10)
+power_target_label = Label(period_output_frame, text='0.0 МВт', font=('Arial', 34), width = 14, anchor='center', bg='white', borderwidth=2, relief='ridge')
+power_target_label.grid(row=3, column=3, columnspan=3, sticky="w", padx=8, pady=20)
 
-generation_target_label = Label(period_output_frame, text='0.0 МВт', font=('Arial', 28), width = 14, anchor='center', bg='white', borderwidth=2, relief='ridge')
-generation_target_label.grid(row=4, column=3, columnspan=3, padx=8, pady=15)
+generation_target_label = Label(period_output_frame, text='0.0 МВт', font=('Arial', 34), width = 14, anchor='center', bg='white', borderwidth=2, relief='ridge')
+generation_target_label.grid(row=4, column=3, columnspan=3, sticky="w", padx=8, pady=20)
 
-power_current_label = Label(period_output_frame, text='0.0 МВт', font=('Arial', 26), width = 10, anchor='center', bg='white', borderwidth=2, relief='ridge')
-power_current_label.grid(row=3, column=7, columnspan=2, padx=1, pady=10)
+power_current_label = Label(period_output_frame, text='0.0 МВт', font=('Arial', 30), width = 10, anchor='center', bg='white', borderwidth=2, relief='ridge')
+power_current_label.grid(row=3, column=7, columnspan=2, sticky="w", padx=1, pady=20)
 
-generation_current_label = Label(period_output_frame, text='0.0 МВт', font=('Arial', 26), width = 10, anchor='center', bg='white', borderwidth=2, relief='ridge')
-generation_current_label.grid(row=4, column=7, columnspan=2, padx=1, pady=15)
+generation_current_label = Label(period_output_frame, text='0.0 МВт', font=('Arial', 30), width = 10, anchor='center', bg='white', borderwidth=2, relief='ridge')
+generation_current_label.grid(row=4, column=7, columnspan=2, sticky="w", padx=1, pady=20)
 
 #Часовой итог
 
-hour_frame = LabelFrame(tab2, text="Итог за час", font=('Arial', 12))
+hour_frame = LabelFrame(tab2, text="Итог за час", font=('Arial', 14))
 hour_frame.grid(row=0, column=1, sticky="nw", padx = 10, pady = 12)    
 
-hour_head_label = Label(hour_frame, text = "1 час\nФакт    |    График", font=('Arial', 14), width = 18, justify=CENTER)
+hour_head_label = Label(hour_frame, text = "1 час\nФакт    |    График", font=('Arial', 16), width = 18, justify=CENTER)
 hour_head_label.grid(row=0, column=0, columnspan=2, padx=(25, 1), pady=0)
-hour_fact_label = Label(hour_frame, text = "0.0 МВт", font=('Arial', 14), width = 9, anchor="center", bg='white', borderwidth=2, relief='ridge')
+hour_fact_label = Label(hour_frame, text = "0.0 МВт", font=('Arial', 18), width = 9, anchor="center", bg='white', borderwidth=2, relief='ridge')
 hour_fact_label.grid(row=1, column=0, sticky="e", padx=2, pady=10)
-hour_plan_label = Label(hour_frame, text = "0.0 МВт", font=('Arial', 14), width = 9, anchor="center", bg='white', borderwidth=2, relief='ridge')
+hour_plan_label = Label(hour_frame, text = "0.0 МВт", font=('Arial', 18), width = 9, anchor="center", bg='white', borderwidth=2, relief='ridge')
 hour_plan_label.grid(row=1, column=1, sticky="w", padx=2, pady=10)
-hour_energy_label = Label(hour_frame, text = "0.0 кВт*ч", font=('Arial', 14), width = 12, anchor="center", bg='white', borderwidth=2, relief='ridge')
-hour_energy_label.grid(row=2, column=0, columnspan=2, sticky="ew", padx=14, pady=28)
+hour_energy_label = Label(hour_frame, text = "0.0 кВт*ч", font=('Arial', 18), width = 12, anchor="center", bg='white', borderwidth=2, relief='ridge')
+hour_energy_label.grid(row=2, column=0, columnspan=2, sticky="ew", padx=14, pady=25)
 
 hour_plan_entry_frame = LabelFrame(tab2, text="")
 hour_plan_entry_frame.grid(row=1, column=1, sticky="nw", padx = 5, pady = 5)
 
-hour_plan_entry_label = Label(hour_plan_entry_frame, text = "Введите график на\nтекущий час (в МВт):", font=('Arial', 13), width = 18, justify=CENTER)
+hour_plan_entry_label = Label(hour_plan_entry_frame, text = "Введите график на\nтекущий час (в МВт):", font=('Arial', 14), width = 18, justify=CENTER)
 hour_plan_entry_label.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
 
-hour_plan_entry = Entry(hour_plan_entry_frame, font=('Arial', 14), justify=CENTER, width=18)
+hour_plan_entry = Entry(hour_plan_entry_frame, font=('Arial', 16), justify=CENTER, width=18)
 hour_plan_entry.grid(row=1, column=0, sticky="w", padx=5, pady=5)
 hour_plan_entry.insert(0, "400.0")
-
 hour_plan_btn = Button(hour_plan_entry_frame, text="Ввести", font=('Arial', 14), anchor=CENTER, command=get_hour_plan)
 hour_plan_btn.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
 
 
 #ЧАСОВЫЕ ПЛАНЫ НА 24 ЧАСА
 
-day_plan_frame = LabelFrame(tab2, text="Почасовой график выдачи мощности, МВт", font=('Arial', 12))
+day_plan_frame = LabelFrame(tab2, text="Почасовой график выдачи мощности, МВт", font=('Arial', 14))
 day_plan_frame.grid(row=2, column=0, sticky="nw", padx = 10, pady=10)
 
-day_plan_label1 = Label(day_plan_frame, text = "Факт        |    График", font=('Arial', 12), width = 22)
+day_plan_label1 = Label(day_plan_frame, text = "Факт        |    График", font=('Arial', 14), width = 22)
 day_plan_label1.grid(row=0, column=1, columnspan=2, sticky="w", padx=(9, 2), pady=2)
-day_plan_label2 = Label(day_plan_frame, text = "Факт        |    График", font=('Arial', 12), width = 22)
+day_plan_label2 = Label(day_plan_frame, text = "Факт        |    График", font=('Arial', 14), width = 22)
 day_plan_label2.grid(row=0, column=4, columnspan=2, sticky="w", padx=(9, 2), pady=2)
-day_plan_label3 = Label(day_plan_frame, text = "Факт        |    График", font=('Arial', 12), width = 22)
+day_plan_label3 = Label(day_plan_frame, text = "Факт        |    График", font=('Arial', 14), width = 22)
 day_plan_label3.grid(row=0, column=7, columnspan=2, sticky="w", padx=(9, 2), pady=2)
 
 day_hour_fact_labels = []
 day_hour_plan_entry = []
 day_hour_time_labels = []
 for i in range(24):
-    day_hour_time_labels.append(Label(day_plan_frame, text = "{}:00-{}:00".format(i, i+1), font=('Arial', 11), width = 10, anchor="e"))
+    day_hour_time_labels.append(Label(day_plan_frame, text = "{}:00-{}:00".format(i, i+1), font=('Arial', 14), width = 10, anchor="e"))
     day_hour_time_labels[i].grid(row=(1+i-8*(i//8)), column=(i//8)*3, sticky="e", padx=2, pady=0)
     
-    day_hour_fact_labels.append(Label(day_plan_frame, font=('Arial', 11), width = 11, anchor="center", bg='white', borderwidth=2, relief='ridge'))
+    day_hour_fact_labels.append(Label(day_plan_frame, font=('Arial', 14), width = 11, anchor="center", bg='white', borderwidth=2, relief='ridge'))
     day_hour_fact_labels[i].grid(row=(1+i-8*(i//8)), column=(i//8)*3+1, sticky="e", padx=2, pady=0)
 
-    day_hour_plan_entry.append(Entry(day_plan_frame, font=('Arial', 11), width = 11, justify=CENTER))
+    day_hour_plan_entry.append(Entry(day_plan_frame, font=('Arial', 14), width = 11, justify=CENTER))
     day_hour_plan_entry[i].grid(row=(1+i-8*(i//8)), column=(i//8)*3+2, sticky="w", padx=(2,22), pady=0)
     
 day_plan_btn = Button(tab2, text="Ввести данные\nпочасового графика\nвыдачи мощности", font=('Arial', 14), justify=CENTER, anchor=CENTER, command=get_day_plan)
