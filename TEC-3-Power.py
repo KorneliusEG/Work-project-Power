@@ -2,6 +2,7 @@ import sys
 import random
 import threading
 import time
+import matplotlib.pyplot as plt
 from os.path import exists
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -12,8 +13,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from tkinter import *
 from tkinter import ttk
+from tkinter.messagebox import showinfo
 from timeit import default_timer as timer
 
+x_arr = []
 timeout = 10
 iteration_time = 200
 url_open_fail = True
@@ -66,15 +69,16 @@ all_lines_sum = 0.0
 sn = 0.0
 
 
-sec_arr = [] #Мгновенная мощность всех линий каждую секунду
-min_arr = [] #Средняя мощность за каждую минуту внутри одного часа
-period_arr = [] #Средняя мощность за каждый период внутри часа (сейчас - 15 минутки)
+sec_arr = [] #Мгновенная мощность всех линий каждую секунду текущей минуты
+min_arr = [] #Средняя мощность за каждую минуту текущего часа
+min_arr_last_hour = [] #Средняя мощность за каждую минуту предыдущего часа
+period_arr = [] #Средняя мощность за каждый период текущего часа (сейчас - 15 минутки)
 hour_arr = [] #Средняя мощность за каждый час
 hour_plan = [] #План выдачи мощности на каждый час
 energy_diff_sum = 0 #Суммарная перевыдача(+) или недовыдача(-) энергии в течение часа (накопитель)
 energy_diff_hour_arr = [] #Массив данных о перевыдаче(+) или недовыдаче(-) энергии за каждый час
 energy_diff_period_arr = [] #Массив данных о перевыдаче(+) или недовыдаче(-) энергии за каждый час
-cur_energy_diff_sum = 0 #Текущая суммарная перевыдача(+) или недовыдача(-), вычисляемая каждую минуту
+cur_energy_diff_sum = 0 #Текущая суммарная перевыдача(+) или недовыдача(-), вычисляемая каждую минуту (накопитель)
 minute_counter = 0
 second_counter = 0
 last_min = 0
@@ -87,7 +91,15 @@ first_start = True
 average_calculations_allowed = False #Condition to start every minute average calculations
                                      #only after the first (cur_min%15 == 0) encounter
 average_calculated = False #Защита от повторного вычисления средних значений в момент 0-ой секунды
+data_restore_needed = False #Flag in time_func() to fulfill empty minutes with calculated average values if program was closed and opened again 
+same_hour = False #Programm stopped and launched again in the same hour
+last_min_saved = 0
+last_hour_saved = 0
 time_start = 0
+request_minutes = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45]
+request_min = 60
+request_value = 0
+
 
 line110_1_secarr = []
 line110_2_secarr = []
@@ -150,6 +162,7 @@ sn_hourarr = []
 for i in range(60):
     sec_arr.append(0)
     min_arr.append(0)
+    min_arr_last_hour.append(0)
     
     line110_1_secarr.append(0)
     line110_2_secarr.append(0)
@@ -181,7 +194,8 @@ for i in range(60):
 
     sn_secarr.append(0)
     sn_minarr.append(0)
-    
+
+    x_arr.append(i)
     
     
 for i in range(24):
@@ -189,7 +203,7 @@ for i in range(24):
     hour_plan.append(380.0)
     energy_diff_hour_arr.append(0)
     sn_hourarr.append(0)
-    
+
 for i in range(4):
     period_arr.append(0)
     energy_diff_period_arr.append(0)
@@ -248,13 +262,13 @@ def on_closing():
 def on_tab_change(event):
     tab = event.widget.tab('current')['text']
     if tab == "Выдача эл.энергии по периодам":
-        hour_plan_entry.select_clear()
+        hour_request_entry.select_clear()
     if tab == "Мощности по линиям и генераторам":
         site_entry.select_clear()
 
 def stop_search():
     global after_id, work_stop, error_count
-    work_stop = True
+    #work_stop = True
     error_count = 0
 
 def is_float(num):
@@ -264,10 +278,17 @@ def is_float(num):
     except ValueError:
         return False
 
+def is_integer(num):
+    try:
+        int(num)
+        return True
+    except ValueError:
+        return False
+
 def string_cut(string):
     word = ""
     for c in string:
-        if (c!=" " and c!="\n"):
+        if c!="\n":
             word += c
     return word
 
@@ -285,26 +306,43 @@ def string_to_array(string):
         words.append(word)
     return words
 
-def check_min_arr():
-    global min_arr
-    last_min = 0
-    for i in range(60):
-        if min_arr[i] > 0:
-            last_min = i
-    return last_min
+def check_min_arr(arr):
+    last_m = 0
+    for i in range(len(arr)):
+        if arr[i] > 0:
+            last_m = i
+    return last_m
+
+def non_zero_minutes(arr):
+    num = 0
+    for i in range(len(arr)):
+        if arr[i] > 0:
+            num += 1
+    return num
+
+def check_comma(checking_string):
+    new_string = list(checking_string)
+    for i in range(len(new_string)):
+        if new_string[i] == ",":
+            new_string[i] = "."
+    return "".join(new_string)
 
 def load_data():
-    global sec_arr, min_arr, period_arr, hour_arr, hour_plan, sn_minarr
+    global sec_arr, min_arr, min_arr_last_hour, period_arr, hour_arr, hour_plan, sn_minarr
     global energy_diff_sum, cur_energy_diff_sum, energy_diff_hour_arr, energy_diff_period_arr
-    global average_calculations_allowed
+    global average_calculations_allowed, data_restore_needed, last_min_saved, last_hour_saved, same_hour
+    global request_value, request_min
 
     data_loaded = False
     min_arr_loaded = False
     hour_arr_loaded = False
     last_min_saved = 0
     file_content = []
-    c_min = time.localtime().tm_min      
-    cur_time = time.strftime("%d %m %Y %H:%M:%S", time.localtime())
+    
+    cur_time = time.localtime()
+    c_min = cur_time.tm_min
+    c_hour = cur_time.tm_hour
+    #cur_time = time.strftime("%d %m %Y %H:%M:%S", time.localtime())
 
     if exists("current_data.dbt"):
         current_data_file = open("current_data.dbt", "r")
@@ -312,9 +350,10 @@ def load_data():
         current_data_file.close()
         print("Number of lines in current_data_file = ", len(file_content))
     else:
-        print("Current Data File not found") 
+        print("Current Data File not found")
+        return
 
-    if len(file_content) == 10:
+    if len(file_content) == 12:
         min_arr_saved = string_to_array(file_content[1])
         period_arr_saved = string_to_array(file_content[2])
         energy_diff_period_arr_saved = string_to_array(file_content[3])
@@ -324,12 +363,28 @@ def load_data():
         sn_minarr_saved = string_to_array(file_content[7])
         energy_diff_sum_saved = string_cut(file_content[8])
         cur_energy_diff_sum_saved = string_cut(file_content[9])
+        request_value_saved = string_cut(file_content[10])
+        request_min_saved = string_cut(file_content[11])
         data_loaded = True
         print("Data loaded successfully")
         print("Date, time in file: ", file_content[0])
+    else:
+        print("File has wrong number of lines")
+        return
 
-        # Checking if day and hour in the file is the same as current       
-        if cur_time[:13]==file_content[0][:13]:
+    
+    time_in_file = time.strptime(string_cut(file_content[0]), "%d %m %Y %H:%M:%S") #01 01 2023 02:02:02
+    print(time_in_file)
+    time_diff_in_minutes = (time.mktime(cur_time) - time.mktime(time_in_file)) / 60
+    print(time_diff_in_minutes)
+
+    if time_diff_in_minutes <= 20:
+        average_calculations_allowed = True
+        data_restore_needed = True
+        
+        if cur_time.tm_hour == time_in_file.tm_hour:
+            same_hour = True
+            print("same_hour = ", same_hour)
             for i in range(60):
                 min_arr[i] = float(min_arr_saved[i])
                 sn_minarr[i] = float(sn_minarr_saved[i])
@@ -338,77 +393,90 @@ def load_data():
                 energy_diff_period_arr[i] = float(energy_diff_period_arr_saved[i])
                 period_fact_labels[i].config(text = str(round(period_arr[i], 1)) + " МВт")
                 period_energy_labels[i].config(text = str(round(energy_diff_period_arr[i], 1)) + " кВт*ч")
+            
             energy_diff_sum = float(energy_diff_sum_saved)
             cur_energy_diff_sum = float(cur_energy_diff_sum_saved)
+            request_value = float(request_value_saved)
+            request_min = int(request_min_saved)
             period_energy_labels[c_min//15].config(text = str(round(cur_energy_diff_sum, 0)) + " кВт*ч")
             print("min_arr, sn_minarr, period_arr, energy_diff_period_arr, cur_energy_diff_sum - loaded")
-            min_arr_loaded = True
-            average_calculations_allowed = True
-        else:
-            print("Current time (hour) is different than in the file")
-
-        # Checking if day in the file is the same as current
-        if cur_time[:10]==file_content[0][:10]:
-            for i in range(len(hour_arr_saved)):
-                hour_arr[i] = float(hour_arr_saved[i])
-                day_hour_fact_labels[i].config(text = str(round(hour_arr[i], 1)) + " МВт")
-                hour_plan[i] = float(hour_plan_saved[i])
-                energy_diff_hour_arr[i] = float(energy_diff_hour_arr_saved[i])
-            print("hour_arr, hour_plan, energy_diff_hour_arr - loaded")
-            hour_arr_loaded = True
-        else:
-            print("Current date (day) is different than in the file")
+            last_min_saved = check_min_arr(min_arr)
+            print("last_min_saved: ", last_min_saved)
+                        
+        if cur_time.tm_hour != time_in_file.tm_hour:
+            same_hour = False
+            print("Current time (hour) is different than in the file. Wrote min_arr in min_arr_last_hour.\nsn_minarr - loaded")
+            for i in range(60):
+                min_arr_last_hour[i] = float(min_arr_saved[i])
+                sn_minarr[i] = float(sn_minarr_saved[i])
+            cur_energy_diff_sum = float(cur_energy_diff_sum_saved)
+            last_min_saved = check_min_arr(min_arr_last_hour)
+            last_hour_saved = time_in_file.tm_hour
+            print("last_min_saved: ", last_min_saved)
+            print("last_hour_saved: ", last_hour_saved)
+            
+    if cur_time.tm_mday == time_in_file.tm_mday:
+        for i in range(len(hour_arr_saved)):
+            hour_arr[i] = float(hour_arr_saved[i])
+            day_hour_fact_labels[i].config(text = str(round(hour_arr[i], 1)) + " МВт")
+            hour_plan[i] = float(hour_plan_saved[i])
+            energy_diff_hour_arr[i] = float(energy_diff_hour_arr_saved[i])
+        print("hour_arr, hour_plan, energy_diff_hour_arr - loaded")
+        hour_arr_loaded = True
+        
     else:
-        print("File has wrong number of lines")
-
-    if min_arr_loaded:
-        last_min_saved = check_min_arr()
-        print("last_min_saved: ", last_min_saved)
-           
+        print("Current date (day) is different than in the file")
+      
 
 def save_data():
     global sec_arr, min_arr, period_arr, hour_arr, hour_plan, sn_minarr
     global energy_diff_sum, cur_energy_diff_sum, energy_diff_hour_arr, energy_diff_period_arr
+    global request_value, request_min
 
     cur_time = time.strftime("%d %m %Y %H:%M:%S", time.localtime())
 
-    current_data_file = open("current_data.dbt", "w")
-    current_data_file.write(cur_time + "\n")        # index 0  Date and Time "01 02 2023 10:35:00"
-    for value in min_arr:                           # index 1  min_arr
-        current_data_file.write(str(value)+" ")
-    current_data_file.write("\n")
+    try:
+        current_data_file = open("current_data.dbt", "w")
+        current_data_file.write(cur_time + "\n")        # index 0  Date and Time "01 02 2023 10:35:00"
+        for value in min_arr:                           # index 1  min_arr
+            current_data_file.write(str(value)+" ")
+        current_data_file.write("\n")
 
-    for value in period_arr:                        # index 2  period_arr
-        current_data_file.write(str(value)+" ")
-    current_data_file.write("\n")
+        for value in period_arr:                        # index 2  period_arr
+            current_data_file.write(str(value)+" ")
+        current_data_file.write("\n")
 
-    for value in energy_diff_period_arr:            # index 3  energy_diff_period_arr
-        current_data_file.write(str(value)+" ")
-    current_data_file.write("\n")
+        for value in energy_diff_period_arr:            # index 3  energy_diff_period_arr
+            current_data_file.write(str(value)+" ")
+        current_data_file.write("\n")
 
-    for value in hour_arr:                          # index 4  hour_arr
-        current_data_file.write(str(value)+" ")
-    current_data_file.write("\n")
+        for value in hour_arr:                          # index 4  hour_arr
+            current_data_file.write(str(value)+" ")
+        current_data_file.write("\n")
 
-    for value in hour_plan:                         # index 5  hour_plan
-        current_data_file.write(str(value)+" ")
-    current_data_file.write("\n")
+        for value in hour_plan:                         # index 5  hour_plan
+            current_data_file.write(str(value)+" ")
+        current_data_file.write("\n")
 
-    for value in energy_diff_hour_arr:              # index 6  energy_diff_hour_arr
-        current_data_file.write(str(value)+" ")
-    current_data_file.write("\n")
+        for value in energy_diff_hour_arr:              # index 6  energy_diff_hour_arr
+            current_data_file.write(str(value)+" ")
+        current_data_file.write("\n")
 
-    for value in sn_minarr:                         # index 7 sn_minarr
-        current_data_file.write(str(value)+" ")
-    current_data_file.write("\n")
+        for value in sn_minarr:                         # index 7 sn_minarr
+            current_data_file.write(str(value)+" ")
+        current_data_file.write("\n")
 
-    current_data_file.write(str(energy_diff_sum) + "\n")    # index 8  energy_diff_sum
-    current_data_file.write(str(cur_energy_diff_sum) + "\n")# index 9  cur_energy_diff_sum
-    
-    current_data_file.close()
+        current_data_file.write(str(energy_diff_sum) + "\n")    # index 8  energy_diff_sum
+        current_data_file.write(str(cur_energy_diff_sum) + "\n")# index 9  cur_energy_diff_sum
+        current_data_file.write(str(request_value) + "\n")      # index 10  request_value
+        current_data_file.write(str(request_min) + "\n")        # index 11  request_min
+        
+        current_data_file.close()
+    except:
+        pass
 
 def show_plan():
-    global hour_plan, cur_energy_diff_sum, sn_minarr, last_min
+    global hour_plan, cur_energy_diff_sum, sn_minarr, last_min, request_min, request_value
     
     c_hour = time.localtime().tm_hour
     c_min = time.localtime().tm_min
@@ -421,7 +489,18 @@ def show_plan():
     for i in range(24):
         day_hour_plan_entry[i].delete(0, END)
         day_hour_plan_entry[i].insert(0, str(hour_plan[i]))
-    
+
+    if c_min >= request_min:
+        cur_energy_diff_sum -= request_value*1000
+        request_value = 0
+        request_min = c_min
+
+    if request_min < 59:
+        r_target = hour_plan[c_hour] - ((cur_energy_diff_sum - request_value*1000) / 1000 * 60 / (60 - request_min)) + sn_minarr[last_min]
+        request_target_label.config(text = str(round(r_target, 1)) + " МВт", bg='#ffc')
+        request_time_label.config(text = "{}:{}-{}:00".format(str(c_hour), str(request_min), str(c_hour+1)), bg='#ffc')
+   
+        
     p_target = hour_plan[c_hour] - (cur_energy_diff_sum / 1000 * 60 / (60 - c_min))
     power_target_label.config(text = str(round(p_target, 1)) + " МВт")
 
@@ -480,8 +559,9 @@ def test_func():
     #after_id = root.after(iteration_time, test_func)
 
 def time_func():
-    global cur_sec, cur_min, cur_hour, last_min, last_hour, time_start, average_calculated, average_calculations_allowed
-    global sec_arr, min_arr, period_arr, hour_arr, hour_plan, minute_counter, second_counter
+    global cur_sec, cur_min, cur_hour, last_min, last_hour
+    global time_start, average_calculated, average_calculations_allowed, data_restore_needed, last_min_saved, last_hour_saved, same_hour
+    global sec_arr, min_arr, min_arr_last_hour, period_arr, hour_arr, hour_plan, minute_counter, second_counter
     global all_lines_sum, energy_diff_sum, cur_energy_diff_sum, energy_diff_hour_arr, energy_diff_period_arr
     global line110_1, line110_1_secarr, line110_1_minarr, line110_1_periodarr, line110_1_hourarr
     global line110_2, line110_2_secarr, line110_2_minarr, line110_2_periodarr, line110_2_hourarr
@@ -523,6 +603,7 @@ def time_func():
         #    cur_min = 0
         ##########for testing only
 
+
         if cur_min%15 == 1:
             average_calculations_allowed = True
         
@@ -550,12 +631,65 @@ def time_func():
         tgsum_minarr[last_min] = sum(tgsum_secarr) / 60
         sn_minarr[last_min] = sum(sn_secarr) / 60
 
+        #If program was stopped (or closed) and started again and less than 20 minutes passed we fill lost minutes
+        #with calculated average values
+        if data_restore_needed:
+            if same_hour:
+                print("min_arr[{}] = {}".format(str(last_min_saved), str(min_arr[last_min_saved])))
+                print("cur_energy_diff_sum = {}".format(str(cur_energy_diff_sum)))
+                avg_value = (min_arr[last_min_saved] + min_arr[last_min])/2
+                for i in range(last_min_saved+1, last_min):
+                    min_arr[i] = avg_value
+                    cur_energy_diff_sum += (min_arr[i] - hour_plan[last_hour])*1000/60
+                    print("min_arr[{}] = {}".format(str(i), str(min_arr[i])))
+                    print("cur_energy_diff_sum = {}".format(str(cur_energy_diff_sum)))
+                for i in range(0, last_min):
+                    cur_average_power = sum(min_arr[(i//15)*15:(i+1)]) / (i + 1 - (i//15)*15)
+                    period_arr[i//15] = cur_average_power
+                    print("cur_average_power = ", cur_average_power)
+                    period_fact_labels[i//15].config(text = str(round(cur_average_power, 1)) + " МВт")
+
+            if not same_hour:
+                print("min_arr_last_hour[{}] = {}".format(str(last_min_saved), str(min_arr_last_hour[last_min_saved])))
+                print("cur_energy_diff_sum = {}".format(str(cur_energy_diff_sum)))
+                avg_value = (min_arr_last_hour[last_min_saved] + min_arr[last_min])/2
+                for i in range(last_min_saved+1, 60):
+                    min_arr_last_hour[i] = avg_value
+                    cur_energy_diff_sum += (min_arr_last_hour[i] - hour_plan[last_hour_saved])*1000/60
+                    print("min_arr_last_hour[{}] = {}".format(str(i), str(min_arr_last_hour[i])))
+                    print("cur_energy_diff_sum = {}".format(str(cur_energy_diff_sum)))
+                print("Hour cur_energy_diff_sum: ", cur_energy_diff_sum)
+                energy_diff_hour_arr[last_hour_saved] = cur_energy_diff_sum
+                cur_energy_diff_sum = 0
+                hour_average = sum(min_arr_last_hour)/non_zero_minutes(min_arr_last_hour)
+                hour_arr[last_hour_saved] = hour_average
+                print("Hour average by sum(min_arr_last_hour): ", hour_average)
+                day_hour_fact_labels[last_hour_saved].config(text = str(round(hour_average, 1)) + " МВт")
+
+                for i in range(0, last_min):
+                    min_arr[i] = avg_value
+                    cur_energy_diff_sum += (min_arr[i] - hour_plan[last_hour])*1000/60
+                    print("min_arr[{}] = {}".format(str(i), str(min_arr[i])))
+                    print("cur_energy_diff_sum = {}".format(str(cur_energy_diff_sum)))
+                    cur_average_power = sum(min_arr[(i//15)*15:]) / (i + 1 - (i//15)*15)
+                    period_arr[i//15] = cur_average_power
+                    print("cur_average_power = ", cur_average_power)
+                    period_fact_labels[i//15].config(text = str(round(cur_average_power, 1)) + " МВт")
+                    
+                
+            time_start = 0
+            time_dif = 1000
+            data_restore_needed = False
+
         #Current energy_diff_sum and current average power output, calculating and refreshing labels every minute
         if average_calculations_allowed:
             cur_energy_diff_sum += (min_arr[last_min] - hour_plan[last_hour])*1000/60
+            energy_diff_period_arr[last_min//15] = cur_energy_diff_sum
             print("\ncur_energy_diff_sum = ", cur_energy_diff_sum)
             period_energy_labels[last_min//15].config(text = str(round(cur_energy_diff_sum, 0)) + " кВт*ч")
+            
             cur_average_power = sum(min_arr[(last_min//15)*15:]) / (last_min + 1 - (last_min//15)*15)
+            period_arr[last_min//15] = cur_average_power
             print("cur_average_power = ", cur_average_power)
             period_fact_labels[last_min//15].config(text = str(round(cur_average_power, 1)) + " МВт")
         
@@ -579,15 +713,10 @@ def time_func():
 
         #calculate average power for last 15 minutes        
         if (cur_min%15 == 0) and (time_dif >= 900):
-            period_average = 0
-            period_sum = 0
-            
+                        
             if cur_min != 0:
-                for i in range(cur_min-15, cur_min):
-                    period_sum += min_arr[i]
-                period_average = period_sum / 15
-                period_arr[last_min//15] = period_average
-
+                period_arr[last_min//15] = sum(min_arr[cur_min-15:cur_min]) / 15
+                
                 line110_1_periodarr[last_min//15] = sum(line110_1_minarr[cur_min-15:cur_min]) / 15
                 line110_2_periodarr[last_min//15] = sum(line110_2_minarr[cur_min-15:cur_min]) / 15
                 line110_5_periodarr[last_min//15] = sum(line110_5_minarr[cur_min-15:cur_min]) / 15
@@ -621,13 +750,13 @@ def time_func():
 
 
                 #Calculating energy surplus(+) or deficit(-) relative to the plan. Cumulative value
-                energy_diff_sum += ((period_average - hour_plan[cur_hour])*1000/4)
+                energy_diff_sum += ((period_arr[last_min//15] - hour_plan[cur_hour])*1000/4)
                 energy_diff_period_arr[last_min//15] = cur_energy_diff_sum
                 #period_energy_labels[last_min//15].config(text = str(round(cur_energy_diff_sum, 0)) + " кВт*ч")
 
 
                 #TARGET POWER OUTPUT
-                power_target = hour_plan[cur_hour] - (energy_diff_sum / 1000 * 60 / (60 - cur_min))
+                power_target = hour_plan[cur_hour] - (cur_energy_diff_sum / 1000 * 60 / (60 - cur_min))
                 power_target_label.config(text = str(round(power_target, 1)) + " МВт")
 
                 generation_target = power_target + sn_minarr[last_min]
@@ -639,14 +768,9 @@ def time_func():
                 #if cur_hour == 24:
                 #    cur_hour = 0
                 ##############FOR TESTING PURPOSES ONLY
-                hour_average = 0
-                hour_sum = 0
+                 
+                period_arr[3] = sum(min_arr[45:60]) / 15
                 
-                for i in range(45, 60):
-                    period_sum += min_arr[i]
-                period_average = period_sum / 15
-                period_arr[3] = period_average
-
                 line110_1_periodarr[3] = sum(line110_1_minarr[45:60]) / 15
                 line110_2_periodarr[3] = sum(line110_2_minarr[45:60]) / 15
                 line110_5_periodarr[3] = sum(line110_5_minarr[45:60]) / 15
@@ -683,18 +807,18 @@ def time_func():
 
                 
                 # Calculate average power for last hour
-                hour_average = sum(min_arr)/60
+                hour_average = sum(min_arr)/non_zero_minutes(min_arr)
                 print("Hour average by sum(min_arr): ", hour_average)
                 hour_arr[last_hour] = hour_average
                 hour_fact_label.config(text = str(round(hour_average, 1)) + " МВт")
                 day_hour_fact_labels[last_hour].config(text = str(round(hour_average, 1)) + " МВт")
 
                 #Calculating energy surplus(+) or deficit(-) relative to the plan. Cumulative value
-                energy_diff_sum += ((period_average - hour_plan[last_hour])*1000/4)
+                energy_diff_sum += ((period_arr[3] - hour_plan[last_hour])*1000/4)
                 energy_diff_period_arr[3] = cur_energy_diff_sum
                 #period_energy_labels[3].config(text = str(round(energy_diff_sum, 0)) + " кВт*ч")
                 hour_energy_label.config(text = str(round(cur_energy_diff_sum, 0)) + " кВт*ч")
-                print("Hour energy_diff_sum: ", energy_diff_sum)
+                print("Hour cur_energy_diff_sum: ", cur_energy_diff_sum)
                 print("Energy_diff_period_arr[]: ", energy_diff_period_arr)
 
                 #TARGET POWER OUTPUT for the new hour (previous hour deficit is ignored)
@@ -706,19 +830,28 @@ def time_func():
                 #Saving the data about energy surplus(+) or deficit(-) for an hour and then deleting it,
                 #because new hour has started
                 energy_diff_hour_arr[last_hour] = cur_energy_diff_sum
-                energy_diff_sum = 0
-                cur_energy_diff_sum = 0
-                
+                                
                 print("Hour_arr: ")
                 print(hour_arr)
 
         if cur_min == 0:
-            #Deleting data in minute array and period array because new hour has started
+            #Deleting data in minute array, period array, energy_diff_sum, cur_energy_diff_sum because new hour has started
+            energy_diff_sum = 0
+            cur_energy_diff_sum = 0
+            request_value = 0
+            request_min = 60
+            request_target_label.config(text = " ", bg='white')
+            request_time_label.config(text = " ", bg='white')
             for i in range(60):
                 min_arr[i] = 0
             for i in range(4):
                 period_arr[i] = 0
-                    
+                energy_diff_period_arr[i] = 0
+            if cur_hour == 1:
+                for i in range(1, 24):
+                    hour_arr[i] = 0
+                    day_hour_fact_labels[i].config(text = " ")
+                     
         average_calculated = True
         save_data()
         print("Time: ", timer()-k1)
@@ -742,6 +875,7 @@ def time_func():
     tgsum_secarr[cur_sec] = tg_sum
     sn_secarr[cur_sec] = sn
     #print("sec: {} value: {}".format(str(cur_sec), sec_arr[cur_sec]))
+
 
 def calculations():
     global tg1_p, tg2_p, tg3_p, tg4_p, tg5_p, tg6_p, tg_sum
@@ -767,12 +901,12 @@ def calculations():
                 word += c
         words.append(word)
 
-
-    #for i in range(len(words)):
-    #    print(i, words[i])
-
-    #print("len(words) = ", len(words))
-    #print("len(full_data) = ", len(full_data))
+##    for i in range(len(words)):
+##        print(i, words[i])
+##
+##    print("len(words) = ", len(words))
+##    print("len(full_data) = ", len(full_data))
+    
     if len(words) == 255:
         tg1_p = words[12]
         tg2_p = words[20]
@@ -904,7 +1038,7 @@ def get_start():
         
     
 def start(target_site):
-    global url_open_fail, site_opening_started, clicked, work_stop, first_start, time_start
+    global url_open_fail, site_opening_started, clicked, work_stop, first_start, time_start, last_min
     
     print("Target site: " + target_site)
     clicked = False
@@ -914,9 +1048,7 @@ def start(target_site):
         url_open_fail = False
        
     except:
-##        if first_start:                 #Delete this in release
-##            time_start = time.time()    #Delete this in release
-##            first_start = False         #Delete this in release
+
         t.insert(END, "Can't open URL\n")
         url_open_fail = True
         site_opening_started = False
@@ -946,10 +1078,11 @@ def start(target_site):
             pass
         
     time.sleep(1)
-    #load_data()
+    load_data()
     work_stop = False
 
     if first_start:
+        last_min = time.localtime().tm_min
         time_start = time.time()
         first_start = False
 
@@ -972,36 +1105,65 @@ def work():
     global cur_sec
     t1 = 0
     t2 = 0
+    
     #print("Work started...")
     try:
         t1 = timer()
         full_data = browser.find_element(By.XPATH, "//*[@id='TextInternalPage']/table[3]").text
-        t2 = timer()
-   
-        #print("Время выполнения полного задания: ", (t2-t1))
         
     except:
         error_count += 1
         pass
     
     #print("Work() took: ", (t2-t1))
-      
     #print("Work finished.")
     if not work_stop:
         work_done = True
     else:
         work_done = False
 
-def get_hour_plan():
-    global energy_diff_sum, hour_plan, period_arr, min_arr
+def get_hour_request():
+    global cur_energy_diff_sum, request_value, request_min
+    selected_min = hour_request_combobox.get()
+    request_string = check_comma(hour_request_entry.get())
+
+    if not is_integer(selected_min):
+        showinfo(
+            title="Сообщение",
+            message="Вы ввели не целое число секунд\nлибо нечисловое значение: {}".format(selected_min),
+        )
+        return
     
-    if is_float(hour_plan_entry.get()):
-        c_hour = time.localtime().tm_hour
-        c_min = time.localtime().tm_min
-        c_period = c_min//15
-        hour_plan[c_hour] = float(hour_plan_entry.get())
-        #print(hour_plan)
-        show_plan()
+    if not is_float(request_string):
+        showinfo(
+            title="Сообщение",
+            message="Вы ввели нечисловое значение заявки: {}".format(request_string)
+        )
+        return
+
+    if float(request_string) >= 1000:
+        showinfo(
+            title="Сообщение",
+            message="Введите значение без нулей. Например:\nЕсли заявка 30 000 кВт*ч, то введите 30"
+        )
+        return
+    
+    request_min = int(selected_min)
+    print(request_min)
+    request_value = float(request_string)
+    print(request_value)
+    
+    
+        
+    #Два варианта:
+    #1) Заявка в форме кВт*ч сразу прибавляется к текущему избытку/недостатку и сразу влияет на задание по выдаче и генерации
+    #cur_energy_diff_sum -= request_value*1000
+    hour_request_entry.delete(0, END)
+    
+    #2) Заявка вступает в силу только в заданную минуту и только тогда изменяется задание по выдаче и генерации
+    c_hour = time.localtime().tm_hour
+    c_min = time.localtime().tm_min
+    show_plan()
         #Recalculate energy_diff_sum IF NEEDED ! If new plan is only for the REST of the hour, then DO NOT recalculate
 ##        if energy_diff_sum != 0 and c_period >= 1:
 ##            end_min = c_period*15
@@ -1013,11 +1175,11 @@ def get_hour_plan():
 def get_day_plan():
     global hour_plan
     for i in range(24):
-        p = day_hour_plan_entry[i].get()
+        p = check_comma(day_hour_plan_entry[i].get())
         if is_float(p):
             hour_plan[i] = float(p)
     show_plan()
-    #print(hour_plan)    
+        
     
 def work_thread_start():
     global work_done, work_stop
@@ -1067,6 +1229,7 @@ root.title("Программа отображения мощности по ге
 root.config(padx=10, pady=10)
 root.geometry('+%d+%d'%(0,0))
 root.maxsize(2000, 1200)
+
 s = ttk.Style()
 s.configure('TNotebook.Tab', font=('Times New Roman', '14'))
 
@@ -1074,6 +1237,8 @@ tab_root = ttk.Notebook(root)
 
 tab1 = Frame(tab_root)
 tab2 = Frame(tab_root)
+
+tab2.rowconfigure(1, weight=5)
 
 tab_root.add(tab1, text="Мощности по линиям и генераторам")
 tab_root.add(tab2, text="Выдача эл.энергии по периодам")
@@ -1302,10 +1467,14 @@ period_label3 = Label(period_output_frame, text='Необходимая вели
 period_label3.grid(row=3, column=0, columnspan=3, sticky="w", padx=5, pady=20)
 period_label4 = Label(period_output_frame, text='Необходимая величина суммарной\nгенерации:', font=('Arial', 16), width=28, justify=LEFT, anchor='w')
 period_label4.grid(row=4, column=0, columnspan=3, sticky="w", padx=5, pady=20)
-period_label5 = Label(period_output_frame, text='Факт:', font=('Arial', 20), width=7, justify=LEFT, anchor='e')
+period_label5 = Label(period_output_frame, text='Выдача:\n(факт)', font=('Arial', 16), width=10, justify=LEFT, anchor='e')
 period_label5.grid(row=3, column=6, sticky="w", padx=2, pady=20)
-period_label6 = Label(period_output_frame, text='Факт:', font=('Arial', 20), width=7, justify=LEFT, anchor='e')
+period_label6 = Label(period_output_frame, text='Генерация:\n(факт)', font=('Arial', 16), width=10, justify=LEFT, anchor='e')
 period_label6.grid(row=4, column=6, sticky="w", padx=2, pady=20)
+period_label7 = Label(period_output_frame, text = 'Величина генерации, которая потребуется\nдля выполнения заявки:', font=('Arial', 16), width=35, justify=LEFT, anchor='w')
+period_label7.grid(row=5, column=0, columnspan=3, sticky="w", padx=5, pady=(25, 5))
+period_label8 = Label(period_output_frame, text='Время исполнения заявки:', font=('Arial', 16), width=22, justify=LEFT, anchor='e')
+period_label8.grid(row=5, column=5, columnspan=2, sticky="w", padx=2, pady=(25, 5))
 
 
 power_target_label = Label(period_output_frame, text='0.0 МВт', font=('Arial', 34), width = 14, anchor='center', bg='white', borderwidth=2, relief='ridge')
@@ -1320,10 +1489,16 @@ power_current_label.grid(row=3, column=7, columnspan=2, sticky="w", padx=1, pady
 generation_current_label = Label(period_output_frame, text='0.0 МВт', font=('Arial', 30), width = 10, anchor='center', bg='white', borderwidth=2, relief='ridge')
 generation_current_label.grid(row=4, column=7, columnspan=2, sticky="w", padx=1, pady=20)
 
+request_target_label = Label(period_output_frame, text=' ', font=('Arial', 26), width = 10, anchor='center', bg='white', borderwidth=2, relief='ridge')
+request_target_label.grid(row=5, column=3, columnspan=2, padx=2, pady=(25, 5))
+
+request_time_label = Label(period_output_frame, text=' ', font=('Arial', 26), width = 10, anchor='center', bg='white', borderwidth=2, relief='ridge')
+request_time_label.grid(row=5, column=7, columnspan=2, padx=2, pady=(25, 5))
+
 #Часовой итог
 
 hour_frame = LabelFrame(tab2, text="Итог за час", font=('Arial', 14))
-hour_frame.grid(row=0, column=1, sticky="nw", padx = 10, pady = 12)    
+hour_frame.grid(row=0, column=1, sticky="nw", padx = 20, pady = 12)    
 
 hour_head_label = Label(hour_frame, text = "1 час\nФакт    |    График", font=('Arial', 16), width = 18, justify=CENTER)
 hour_head_label.grid(row=0, column=0, columnspan=2, padx=(25, 1), pady=0)
@@ -1334,23 +1509,35 @@ hour_plan_label.grid(row=1, column=1, sticky="w", padx=2, pady=10)
 hour_energy_label = Label(hour_frame, text = "0.0 кВт*ч", font=('Arial', 18), width = 12, anchor="center", bg='white', borderwidth=2, relief='ridge')
 hour_energy_label.grid(row=2, column=0, columnspan=2, sticky="ew", padx=14, pady=25)
 
-hour_plan_entry_frame = LabelFrame(tab2, text="")
-hour_plan_entry_frame.grid(row=1, column=1, sticky="nw", padx = 5, pady = 5)
 
-hour_plan_entry_label = Label(hour_plan_entry_frame, text = "Введите график на\nтекущий час (в МВт):", font=('Arial', 14), width = 18, justify=CENTER)
-hour_plan_entry_label.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
 
-hour_plan_entry = Entry(hour_plan_entry_frame, font=('Arial', 16), justify=CENTER, width=18)
-hour_plan_entry.grid(row=1, column=0, sticky="w", padx=5, pady=5)
-hour_plan_entry.insert(0, "400.0")
-hour_plan_btn = Button(hour_plan_entry_frame, text="Ввести", font=('Arial', 14), anchor=CENTER, command=get_hour_plan)
-hour_plan_btn.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
+# ЗАЯВКА НА ТЕКУЩИЙ ЧАС
+
+hour_request_frame = LabelFrame(tab2, text="Окно заявки", font=('Arial', 14))
+hour_request_frame.grid(row=1, rowspan=2, column=1, sticky="n", padx = 20, pady = 5)
+
+hour_request_label1 = Label(hour_request_frame, text = 'Введите заявку на\nтекущий час (в тысячах кВт*ч):\nЗаявка на понижение\nвводится со знаком "-",\nна повышение: без знака', font=('Arial', 14), justify=LEFT)
+hour_request_label1.grid(row=0, column=0, sticky="n", padx=5, pady=5)
+
+hour_request_entry = Entry(hour_request_frame, font=('Arial', 16), justify=CENTER, width=18)
+hour_request_entry.grid(row=1, column=0, sticky="w", padx=5, pady=5)
+hour_request_entry.insert(0, "")
+
+hour_request_label2 = Label(hour_request_frame, text = 'Введите минуту начала\nисполнения заявки', font=('Arial', 16), justify=LEFT)
+hour_request_label2.grid(row=2, column=0, sticky="w", padx=5, pady=2)
+
+hour_request_combobox = ttk.Combobox(hour_request_frame, values = request_minutes, font=('Arial', 16))
+hour_request_combobox.grid(row=3, column=0, sticky="w", padx=5, pady=2)
+hour_request_combobox.current(0)
+
+hour_request_btn = Button(hour_request_frame, text="Ввести заявку", font=('Arial', 16), anchor=CENTER, command=get_hour_request)
+hour_request_btn.grid(row=4, column=0, sticky="ew", padx=5, pady=5)
 
 
 #ЧАСОВЫЕ ПЛАНЫ НА 24 ЧАСА
 
 day_plan_frame = LabelFrame(tab2, text="Почасовой график выдачи мощности, МВт", font=('Arial', 14))
-day_plan_frame.grid(row=2, column=0, sticky="nw", padx = 10, pady=10)
+day_plan_frame.grid(row=2, rowspan=2, column=0, sticky="nw", padx = 10, pady=10)
 
 day_plan_label1 = Label(day_plan_frame, text = "Факт        |    График", font=('Arial', 14), width = 22)
 day_plan_label1.grid(row=0, column=1, columnspan=2, sticky="w", padx=(9, 2), pady=2)
@@ -1372,8 +1559,8 @@ for i in range(24):
     day_hour_plan_entry.append(Entry(day_plan_frame, font=('Arial', 14), width = 11, justify=CENTER))
     day_hour_plan_entry[i].grid(row=(1+i-8*(i//8)), column=(i//8)*3+2, sticky="w", padx=(2,22), pady=0)
     
-day_plan_btn = Button(tab2, text="Ввести данные\nпочасового графика\nвыдачи мощности", font=('Arial', 14), justify=CENTER, anchor=CENTER, command=get_day_plan)
-day_plan_btn.grid(row=2, column=1, sticky="ew", padx=5, pady=5)    
+day_plan_btn = Button(tab2, text="Ввести данные\nпочасового графика\nвыдачи мощности", font=('Arial', 16), width=20, justify=CENTER, anchor=CENTER, command=get_day_plan)
+day_plan_btn.grid(row=3, column=1, sticky="w", padx=5, pady=5)    
 
 
 
